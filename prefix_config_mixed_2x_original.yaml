@@ -1,0 +1,88 @@
+# Mixed English/Danish filtered sample capped to at most about 2x the
+# original Sapient per-epoch token budget.
+#
+# Target ceiling from data/show_analytics_original_sapient.md:
+#   56,140,714,711 covered tokens / 4 epochs / 2x = 28,070,357,355 tokens/epoch.
+#
+# Ordered: first match applies.
+
+# Local Danish additions
+- prefix: "dbc__dbc-abstracts_"
+  max_per_file: 50_000
+- prefix: "dbc__dbc-reviews"
+  max_per_file: 100_000
+- prefix: "dbc__dbc-faktalink"
+  repeat: 10
+- prefix: "dbc__dbc-farfatterweb"
+  repeat: 10
+- prefix: "lexdk__"
+  repeat: 3
+- prefix: "opus__"
+  max_per_file: 200_000
+
+# Danish continuation/translation-like data, capped so it does not dominate.
+- prefix: "danish_dynaword__"
+  max_per_file: 70_000
+- prefix: "oliverkinch_machine_translation_da_en__"
+  max_per_file: 3_000_000
+- prefix: "oliverkinch_machine_translation_da_uk__"
+  max_per_file: 1_000_000
+- prefix: "oliverkinch_machine_translation_da_ar__"
+  max_per_file: 1_000_000
+
+# Sapient cleaned appears under a source-prefixed name in data/tokenized_mixed.
+# These mirror the original Sapient sampling rules; without these prefixes, the
+# mixed-only sample accidentally takes most filtered Sapient files uncapped.
+- prefix: "sapient_cleaned__data_clustered__SYNTH__"
+  max_per_file: 20_000
+- prefix: "sapient_cleaned__data_clustered__flan__cot_"
+- prefix: "sapient_cleaned__data_clustered__flan__"
+  max_per_file: 5_000
+- prefix: "sapient_cleaned__data_clustered__dmmath__"
+  max_per_file: 100_000
+- prefix: "sapient_cleaned__data_clustered__ampsmathematica__"
+  max_per_file: 10_000
+- prefix: "sapient_cleaned__data_clustered__tasksource__"
+  max_per_file: 10_000
+- prefix: "sapient_cleaned__data_clustered__openmathinstruct2__"
+  max_per_file: 2_000_000
+- prefix: "sapient_cleaned__data_clustered__acereason__"
+  max_per_file: 2_000_000
+- prefix: "sapient_cleaned__data_clustered__openthoughts2__"
+  max_per_file: 500_000
+- prefix: "sapient_cleaned__data_clustered__sudoku_extreme__"
+  max_per_file: 1_000_000
+- prefix: "sapient_cleaned__data__Platypus__"
+  repeat: 10
+- prefix: "sapient_cleaned__data__no_robots.jsonl"
+  repeat: 10
+
+# Non-Sapient instruction/reasoning sources.
+- prefix: "allenai_big_reasoning_traces__"
+  max_per_file: 15_000
+- prefix: "nemotron_multilingual__"
+  max_per_file: 50_000
+- prefix: "nemotron_swe__"
+  max_per_file: 50_000
+- prefix: "nemotron_agentic__"
+  max_per_file: 250_000
+- prefix: "nemotron_instruction_reasoning_off__"
+  max_per_file: 500_000
+- prefix: "dolci_instruct_sft__"
+  max_per_file: 150_000
+- prefix: "dolci_instruct_sft_no_tools__"
+  max_per_file: 150_000
+- prefix: "dolci_instruct_sft_tool_use__"
+  max_per_file: 150_000
+- prefix: "allenai_tulu_3_sft_mixture__"
+  max_per_file: 300_000
+- prefix: "allenai_tulu_v2_sft_mixture__"
+  max_per_file: 300_000
+- prefix: "allenai_tulu_v2_sft_long_mixture__"
+  max_per_file: 200_000
+- prefix: "allenai_tulu_3_personas_math__"
+  max_per_file: 100_000
+
+# Small high-quality datasets can repeat.
+- prefix: "no_robots__"
+  repeat: 10

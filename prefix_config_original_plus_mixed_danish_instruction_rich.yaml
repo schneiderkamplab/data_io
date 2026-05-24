@@ -1,0 +1,122 @@
+# Ordered: First match applies.
+#
+# Danish-instruction-rich config for original ∪ mixed.
+# Starts from the balanced union policy, but reduces raw continuation and
+# pure translation volume while increasing Danish instruction/reference-like
+# sources such as Synquid, Oliver Kinch instruction/backtranslation/QA,
+# LexDK, and DBC.
+
+# Keep balanced raw continuation / pure translation volume
+- prefix: "danish_dynaword__"
+  max_per_file: 50_000
+- prefix: "opus__"
+  max_per_file: 200_000
+- prefix: "oliverkinch_machine_translation_da_en__"
+  max_per_file: 3_000_000
+- prefix: "oliverkinch_machine_translation_da_ar__"
+  max_per_file: 1_000_000
+- prefix: "oliverkinch_machine_translation_da_uk__"
+  max_per_file: 1_000_000
+- prefix: "synquid_translation_100k__"
+  repeat: 1
+
+# More Danish instruction/reference-like content
+- prefix: "dbc__dbc-abstracts_"
+  max_per_file: 150_000
+- prefix: "dbc__dbc-reviews"
+  max_per_file: 250_000
+- prefix: "dbc__dbc-faktalink"
+  repeat: 40
+- prefix: "dbc__dbc-farfatterweb"
+  repeat: 40
+- prefix: "lexdk__"
+  repeat: 18
+- prefix: "synquid_danish_verifiable_reasoning__"
+  repeat: 35
+- prefix: "synquid_ifbench_train__"
+  repeat: 15
+- prefix: "oliverkinch_multi_wiki_qa_high_quality__"
+  repeat: 35
+- prefix: "oliverkinch_eur_lex_sum_instruct__"
+  repeat: 35
+- prefix: "oliverkinch_dst_table_prompts_bt__"
+  repeat: 15
+- prefix: "oliverkinch_tidsskrift_dk_bt__"
+  repeat: 15
+- prefix: "oliverkinch_dynaword_bt__"
+  repeat: 10
+- prefix: "oliverkinch_danish_university_portals_bt__"
+  repeat: 15
+- prefix: "oliverkinch_danmarks_statistik_bt__"
+  repeat: 15
+- prefix: "oliverkinch_doab_da_bt__"
+  repeat: 15
+- prefix: "oliverkinch_eur_lex_bt__"
+  repeat: 15
+
+# Large mixed additions
+- prefix: "nemotron_multilingual__"
+  max_per_file: 45_000
+- prefix: "nemotron_instruction_reasoning_off__"
+  max_per_file: 225_000
+- prefix: "allenai_big_reasoning_traces__"
+  max_per_file: 4_500
+- prefix: "dolci_instruct_sft_tool_use_sa__"
+  max_per_file: 50_000
+- prefix: "dolci_instruct_sft_tool_use__"
+  max_per_file: 50_000
+- prefix: "dolci_instruct_sft_no_tools__"
+  max_per_file: 45_000
+- prefix: "dolci_instruct_sft__"
+  max_per_file: 45_000
+- prefix: "nemotron_agentic__"
+  max_per_file: 100_000
+- prefix: "nemotron_swe__"
+  max_per_file: 9_000
+- prefix: "allenai_tulu_v2_sft_long_mixture__"
+  max_per_file: 100_000
+- prefix: "allenai_tulu_v2_sft_mixture__"
+  max_per_file: 90_000
+- prefix: "allenai_tulu_3_sft_mixture__"
+  max_per_file: 50_000
+- prefix: "allenai_tulu_3_personas_math__"
+  max_per_file: 50_000
+
+# SYNTH
+- prefix: "SYNTH__"
+  max_per_file: 20_000
+
+# FLAN
+- prefix: "flan__cot_"
+- prefix: "flan__"
+  max_per_file: 5_000
+
+# Other clustered datasets
+- prefix: "dmmath__"
+  max_per_file: 100_000
+- prefix: "ampsmathematica__"
+  max_per_file: 10_000
+- prefix: "tasksource__"
+  max_per_file: 10_000
+- prefix: "openmathinstruct2__"
+  max_per_file: 2_000_000
+- prefix: "acereason__"
+  max_per_file: 2_000_000
+- prefix: "openthoughts2__"
+  max_per_file: 500_000
+- prefix: "sudoku_extreme__"
+  max_per_file: 1_000_000
+
+# Repeat small HQ datasets
+- prefix: "Platypus__"
+  repeat: 10
+- prefix: "omnimath.jsonl"
+  repeat: 10
+- prefix: "gsm8k_train.jsonl"
+  repeat: 10
+- prefix: "math_train.jsonl"
+  repeat: 10
+- prefix: "webinstruct_verified.jsonl"
+  repeat: 10
+- prefix: "no_robots.jsonl"
+  repeat: 10

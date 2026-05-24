@@ -44,6 +44,9 @@ struct Args {
     #[arg(long, value_delimiter = ',', num_args = 1..,
     default_values = ["direct=<|object_ref_start|>", "cot=<|object_ref_end|>", "noisy=<|quad_start|>", "synth=<|quad_end|>"])]
     conditions: Vec<String>,
+
+    #[arg(long, help = "Maximum number of file-processing worker threads.")]
+    workers: Option<usize>,
 }
 
 // --- Data Structures ---
@@ -164,7 +167,8 @@ fn main() -> Result<()> {
     // 4. Processing
     let total_work = work_queue.len();
     let core_ids = core_affinity::get_core_ids().unwrap();
-    let num_threads = core_ids.len().saturating_sub(1).max(1);
+    let default_threads = core_ids.len().saturating_sub(1).max(1);
+    let num_threads = args.workers.unwrap_or(default_threads).clamp(1, default_threads);
     println!("Processing {} files on {} threads...", total_work, num_threads);
 
     let pb = Arc::new(ProgressBar::new(total_work as u64));

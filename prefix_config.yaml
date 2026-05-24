@@ -1,5 +1,19 @@
 # Ordered: First match applies.
 
+# Local DBC additions
+- prefix: "dbc__dbc-abstracts_"
+  max_per_file: 50_000
+- prefix: "dbc__dbc-reviews"
+  max_per_file: 100_000
+- prefix: "dbc__dbc-faktalink"
+  repeat: 10
+- prefix: "dbc__dbc-farfatterweb"
+  repeat: 10
+- prefix: "lexdk__"
+  repeat: 3
+- prefix: "opus__"
+  max_per_file: 200_000
+
 # SYNTH
 - prefix: "SYNTH__"
   max_per_file: 20_000

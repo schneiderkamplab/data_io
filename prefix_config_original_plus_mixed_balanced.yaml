@@ -1,0 +1,94 @@
+# Ordered: First match applies.
+#
+# Balanced config for the original ∪ mixed dataset.
+# Goal: keep the original Sapient sampling policy intact while preventing
+# the added mixed sources from dominating each epoch.
+
+# Large mixed additions
+- prefix: "nemotron_multilingual__"
+  max_per_file: 50_000
+- prefix: "danish_dynaword__"
+  max_per_file: 50_000
+- prefix: "oliverkinch_machine_translation_da_en__"
+  max_per_file: 3_000_000
+- prefix: "oliverkinch_machine_translation_da_ar__"
+  max_per_file: 1_000_000
+- prefix: "oliverkinch_machine_translation_da_uk__"
+  max_per_file: 1_000_000
+- prefix: "nemotron_instruction_reasoning_off__"
+  max_per_file: 250_000
+- prefix: "allenai_big_reasoning_traces__"
+  max_per_file: 5_000
+- prefix: "dolci_instruct_sft_tool_use_sa__"
+  max_per_file: 50_000
+- prefix: "dolci_instruct_sft_tool_use__"
+  max_per_file: 50_000
+- prefix: "dolci_instruct_sft_no_tools__"
+  max_per_file: 50_000
+- prefix: "dolci_instruct_sft__"
+  max_per_file: 50_000
+- prefix: "nemotron_agentic__"
+  max_per_file: 100_000
+- prefix: "nemotron_swe__"
+  max_per_file: 10_000
+- prefix: "allenai_tulu_v2_sft_long_mixture__"
+  max_per_file: 100_000
+- prefix: "allenai_tulu_v2_sft_mixture__"
+  max_per_file: 100_000
+- prefix: "allenai_tulu_3_sft_mixture__"
+  max_per_file: 50_000
+- prefix: "allenai_tulu_3_personas_math__"
+  max_per_file: 50_000
+
+# Local DBC additions
+- prefix: "dbc__dbc-abstracts_"
+  max_per_file: 50_000
+- prefix: "dbc__dbc-reviews"
+  max_per_file: 100_000
+- prefix: "dbc__dbc-faktalink"
+  repeat: 10
+- prefix: "dbc__dbc-farfatterweb"
+  repeat: 10
+- prefix: "lexdk__"
+  repeat: 3
+- prefix: "opus__"
+  max_per_file: 200_000
+
+# SYNTH
+- prefix: "SYNTH__"
+  max_per_file: 20_000
+
+# FLAN
+- prefix: "flan__cot_"
+- prefix: "flan__"
+  max_per_file: 5_000
+
+# Other clustered datasets
+- prefix: "dmmath__"
+  max_per_file: 100_000
+- prefix: "ampsmathematica__"
+  max_per_file: 10_000
+- prefix: "tasksource__"
+  max_per_file: 10_000
+- prefix: "openmathinstruct2__"
+  max_per_file: 2_000_000
+- prefix: "acereason__"
+  max_per_file: 2_000_000
+- prefix: "openthoughts2__"
+  max_per_file: 500_000
+- prefix: "sudoku_extreme__"
+  max_per_file: 1_000_000
+
+# Repeat small HQ datasets
+- prefix: "Platypus__"
+  repeat: 10
+- prefix: "omnimath.jsonl"
+  repeat: 10
+- prefix: "gsm8k_train.jsonl"
+  repeat: 10
+- prefix: "math_train.jsonl"
+  repeat: 10
+- prefix: "webinstruct_verified.jsonl"
+  repeat: 10
+- prefix: "no_robots.jsonl"
+  repeat: 10

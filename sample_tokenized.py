@@ -24,6 +24,7 @@ class Config(pydantic.BaseModel):
     tokenized_path: str = "data_tokenized_bpe_65k"
     output_path: str = "/dev/shm/sampled"
     prefix_config_path: str = "prefix_config.yaml"
+    concat_workers: int = 32
 
     seed: int = 0
     epochs: int = 10
@@ -271,7 +272,7 @@ def main():
                           prefix_config=prefix_config))
 
     # Concatenate all tokens into a single large file
-    concat_tokens(tasks, config, tokenizer_info)
+    concat_tokens(tasks, config, tokenizer_info, num_workers=config.concat_workers)
 
     # Prefilter
     for task in tasks:
