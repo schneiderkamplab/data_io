@@ -1,0 +1,113 @@
+# Post-training transformation/refinement mix.
+#
+# This config assumes tokenized_path points at data/tokenized_posttrain_transform_refine,
+# which is already a filtered union of only relevant tasks. The goals are:
+# - make controlled editing/transformation data visible enough to affect final CPs;
+# - retain nearby high-quality instruction-following and summarization data;
+# - keep synthetic data separate and easy to include/exclude.
+
+# New curated transformation sources.
+- prefix: "posttrain_coedit__"
+  repeat: 8
+- prefix: "posttrain_superni_filtered__"
+  max_per_file: 500_000
+  repeat: 2
+
+# Synthetic teacher-generated transformation sources. Generated files are
+# accepted/validated before conversion, then sampled with substantial repeats
+# because the generated corpus starts small relative to the pretraining mix.
+- prefix: "posttrain_synthetic_exact_sentence_summary_en__"
+  repeat: 20
+- prefix: "posttrain_synthetic_exact_sentence_summary_da__"
+  repeat: 20
+- prefix: "posttrain_synthetic_past_tense_rewrite_en__"
+  repeat: 20
+- prefix: "posttrain_synthetic_past_tense_rewrite_da__"
+  repeat: 20
+- prefix: "posttrain_synthetic_child_friendly_simplification_en__"
+  repeat: 20
+- prefix: "posttrain_synthetic_child_friendly_simplification_da__"
+  repeat: 20
+- prefix: "posttrain_synthetic_numbered_fact_extraction_en__"
+  repeat: 20
+- prefix: "posttrain_synthetic_numbered_fact_extraction_da__"
+  repeat: 20
+- prefix: "posttrain_synthetic_non_copy_rewrite_en__"
+  repeat: 20
+- prefix: "posttrain_synthetic_non_copy_rewrite_da__"
+  repeat: 20
+
+# Existing relevant summarization/transformation-adjacent data.
+- prefix: "dfm4_arxiv_paper_summarization__"
+  max_per_file: 100_000
+  repeat: 2
+- prefix: "dfm4_govreport_summarization__"
+  repeat: 6
+- prefix: "dfm4_wiki_cat_sum_summarization__"
+  repeat: 6
+- prefix: "dfm4_laion_scientific_summaries__"
+  max_per_file: 3_000
+  repeat: 3
+
+# Danish writing, summary, article, and QA/instruction sources.
+- prefix: "dbc__dbc-abstracts_"
+  max_per_file: 100_000
+  repeat: 2
+- prefix: "dbc__dbc-reviews"
+  max_per_file: 150_000
+  repeat: 2
+- prefix: "dbc__dbc-faktalink"
+  repeat: 20
+- prefix: "dbc__dbc-farfatterweb"
+  repeat: 20
+- prefix: "lexdk__"
+  repeat: 20
+- prefix: "laerebogen_with_followups__"
+  repeat: 4
+- prefix: "synquid_wiki_instruct_da__"
+  repeat: 4
+- prefix: "synquid_ifbench_train__"
+  repeat: 15
+- prefix: "synquid_danish_verifiable_reasoning__"
+  repeat: 10
+- prefix: "oliverkinch_instruct_bt__"
+  repeat: 15
+- prefix: "oliverkinch_eur_lex_sum_instruct__"
+  repeat: 15
+- prefix: "oliverkinch_multi_wiki_qa_high_quality__"
+  repeat: 10
+- prefix: "oliverkinch_danmarks_statistik_bt__"
+  repeat: 10
+- prefix: "oliverkinch_tidsskrift_dk_bt__"
+  repeat: 10
+- prefix: "oliverkinch_doab_da_bt__"
+  repeat: 10
+- prefix: "oliverkinch_danish_university_portals_bt__"
+  repeat: 10
+- prefix: "oliverkinch_eur_lex_bt__"
+  repeat: 10
+- prefix: "oliverkinch_dynaword_bt__"
+  repeat: 10
+- prefix: "oliverkinch_dst_table_prompts_bt__"
+  repeat: 10
+
+# General instruction-following data relevant to constraints and formatting.
+- prefix: "allenai_tulu_3_personas_if__"
+  repeat: 4
+- prefix: "allenai_if_sft_verified__"
+  repeat: 8
+- prefix: "allenai_if_multi_constraints_upto5__"
+  repeat: 8
+- prefix: "dolci_instruct_sft__"
+  max_per_file: 200_000
+  repeat: 2
+- prefix: "dolci_instruct_sft_no_tools__"
+  max_per_file: 200_000
+  repeat: 2
+- prefix: "no_robots__"
+  repeat: 8
+- prefix: "nemotron_instruction_reasoning_off__"
+  max_per_file: 150_000
+  repeat: 2
+- prefix: "nemotron_multilingual__"
+  max_per_file: 50_000

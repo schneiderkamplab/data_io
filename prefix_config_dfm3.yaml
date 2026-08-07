@@ -1,0 +1,200 @@
+# DFM3 mix: DFM2 plus selected English Common Pile raw objectives and a larger
+# approved English instruction slice.
+#
+# Raw-objective target:
+# - X direct continuation from selected Common Pile sources
+# - X prefix continuation
+# - X denoising
+# - 3X span filling
+# Here X is the DFM2 DynaWord direct slice, approximately 2.8B covered
+# tokens/epoch. Initial row caps are intentionally conservative; inspect
+# data/show_analytics_dfm3.md and tune if the Common Pile token totals miss
+# 1+1+1+3.
+
+# DFM3 Common Pile self-supervised English raw-text tasks.
+- prefix: "dfm3_common_pile_direct_continuation__"
+  max_per_file: 40_000
+- prefix: "dfm3_common_pile_prefix_continuation__"
+  max_per_file: 40_000
+- prefix: "dfm3_common_pile_denoising__"
+  max_per_file: 40_000
+- prefix: "dfm3_common_pile_span_fill_v1__"
+  max_per_file: 40_000
+- prefix: "dfm3_common_pile_span_fill_v2__"
+  max_per_file: 40_000
+- prefix: "dfm3_common_pile_span_fill_v3__"
+  max_per_file: 40_000
+
+# DFM2 DynaWord self-supervised raw-text tasks.
+- prefix: "dfm2_dynaword_prefix_continuation__"
+  max_per_file: 60_000
+- prefix: "dfm2_dynaword_prefix_continuation_v2__"
+  max_per_file: 60_000
+- prefix: "dfm2_dynaword_denoising__"
+  max_per_file: 30_000
+- prefix: "dfm2_dynaword_denoising_v2__"
+  max_per_file: 30_000
+- prefix: "dfm2_dynaword_span_fill_v1__"
+  max_per_file: 30_000
+- prefix: "dfm2_dynaword_span_fill_v2__"
+  max_per_file: 30_000
+- prefix: "dfm2_dynaword_span_fill_v3__"
+  max_per_file: 30_000
+- prefix: "dfm2_dynaword_span_fill_v4__"
+  max_per_file: 30_000
+- prefix: "dfm2_dynaword_span_fill_v5__"
+  max_per_file: 30_000
+- prefix: "dfm2_dynaword_span_fill_v6__"
+  max_per_file: 30_000
+
+# Local Danish instruction/reference additions.
+- prefix: "dbc__dbc-abstracts_"
+  max_per_file: 100_000
+- prefix: "dbc__dbc-reviews"
+  max_per_file: 150_000
+- prefix: "dbc__dbc-faktalink"
+  repeat: 20
+- prefix: "dbc__dbc-farfatterweb"
+  repeat: 20
+- prefix: "lexdk__"
+  repeat: 10
+
+# Danish continuation / translation-like data, capped so it does not dominate.
+- prefix: "danish_dynaword__"
+  max_per_file: 60_000
+- prefix: "opus__"
+  max_per_file: 200_000
+- prefix: "oliverkinch_machine_translation_da_en__"
+  max_per_file: 3_000_000
+- prefix: "oliverkinch_machine_translation_da_uk__"
+  max_per_file: 1_000_000
+- prefix: "oliverkinch_machine_translation_da_ar__"
+  max_per_file: 1_000_000
+- prefix: "synquid_translation_100k__"
+  repeat: 1
+
+# Gated Danish instruction sources.
+- prefix: "laerebogen_with_followups__"
+  repeat: 2
+- prefix: "synquid_wiki_instruct_da__"
+  repeat: 2
+- prefix: "oliverkinch_instruct_bt__"
+  repeat: 5
+- prefix: "synquid_mt_da_deepseek__"
+  max_per_file: 100_000
+- prefix: "synquid_wildchat_100k_qwen_messages__"
+  max_per_file: 50_000
+
+# Other Danish instruction/reference additions.
+- prefix: "synquid_danish_verifiable_reasoning__"
+  repeat: 20
+- prefix: "synquid_ifbench_train__"
+  repeat: 10
+- prefix: "oliverkinch_multi_wiki_qa_high_quality__"
+  repeat: 20
+- prefix: "oliverkinch_eur_lex_sum_instruct__"
+  repeat: 20
+- prefix: "oliverkinch_dst_table_prompts_bt__"
+  repeat: 10
+- prefix: "oliverkinch_tidsskrift_dk_bt__"
+  repeat: 10
+- prefix: "oliverkinch_dynaword_bt__"
+  repeat: 8
+- prefix: "oliverkinch_danish_university_portals_bt__"
+  repeat: 10
+- prefix: "oliverkinch_danmarks_statistik_bt__"
+  repeat: 10
+- prefix: "oliverkinch_doab_da_bt__"
+  repeat: 10
+- prefix: "oliverkinch_eur_lex_bt__"
+  repeat: 10
+
+# Safe filtered Sapient content.
+- prefix: "sapient_cleaned__data_clustered__SYNTH__"
+  max_per_file: 20_000
+- prefix: "sapient_cleaned__data_clustered__flan__cot_"
+- prefix: "sapient_cleaned__data_clustered__flan__"
+  max_per_file: 5_000
+- prefix: "sapient_cleaned__data_clustered__dmmath__"
+  max_per_file: 100_000
+- prefix: "sapient_cleaned__data_clustered__ampsmathematica__"
+  max_per_file: 10_000
+- prefix: "sapient_cleaned__data_clustered__tasksource__"
+  max_per_file: 10_000
+- prefix: "sapient_cleaned__data_clustered__openmathinstruct2__"
+  max_per_file: 2_000_000
+- prefix: "sapient_cleaned__data_clustered__acereason__"
+  max_per_file: 2_000_000
+- prefix: "sapient_cleaned__data_clustered__openthoughts2__"
+  max_per_file: 500_000
+- prefix: "sapient_cleaned__data_clustered__sudoku_extreme__"
+  max_per_file: 1_000_000
+- prefix: "sapient_cleaned__data__Platypus__"
+  repeat: 10
+- prefix: "sapient_cleaned__data__no_robots.jsonl"
+  repeat: 10
+
+# Upweighted approved English/multilingual instruction/reasoning sources.
+# Based on DFM2 analytics, fully uncapping already present approved sources can
+# add about 13B covered tokens/epoch. Newly listed approved sources contribute
+# if downloaded/converted.
+- prefix: "allenai_big_reasoning_traces__"
+  max_per_file: 50_000
+- prefix: "allenai_if_sft_verified__"
+  repeat: 1
+- prefix: "allenai_if_multi_constraints_upto5__"
+  repeat: 1
+- prefix: "allenai_open_math_2_50k_r1__"
+  repeat: 1
+- prefix: "allenai_sciriff_train_mix__"
+  repeat: 1
+- prefix: "allenai_verifiable_reasoning_gpt41__"
+  max_per_file: 100_000
+- prefix: "allenai_verifiable_reasoning_o4mini__"
+  max_per_file: 100_000
+- prefix: "allenai_code_meta_reasoning__"
+  max_per_file: 250_000
+- prefix: "allenai_rlvr_ifeval__"
+  repeat: 1
+- prefix: "natural_reasoning__"
+  max_per_file: 250_000
+- prefix: "principia_collection__"
+  max_per_file: 250_000
+- prefix: "textbook_reasoning__"
+  max_per_file: 250_000
+- prefix: "webinstruct_verified__"
+  max_per_file: 250_000
+- prefix: "nemotron_multilingual__"
+  max_per_file: 250_000
+- prefix: "nemotron_swe__"
+  max_per_file: 200_000
+- prefix: "nemotron_agentic__"
+  max_per_file: 800_000
+- prefix: "nemotron_instruction_reasoning_off__"
+  max_per_file: 1_500_000
+- prefix: "dolci_instruct_sft__"
+  max_per_file: 1_500_000
+- prefix: "dolci_instruct_sft_no_tools__"
+  max_per_file: 1_500_000
+- prefix: "dolci_instruct_sft_tool_use__"
+  max_per_file: 500_000
+- prefix: "dolci_instruct_sft_tool_use_sa__"
+  max_per_file: 50_000
+- prefix: "allenai_tulu_3_sft_mixture__"
+  max_per_file: 1_500_000
+- prefix: "allenai_tulu_v2_sft_mixture__"
+  max_per_file: 1_500_000
+- prefix: "allenai_tulu_v2_sft_long_mixture__"
+  max_per_file: 1_500_000
+- prefix: "allenai_tulu_3_personas_math__"
+  max_per_file: 75_000
+- prefix: "allenai_tulu_3_personas_algebra__"
+  max_per_file: 50_000
+- prefix: "allenai_tulu_3_personas_code__"
+  max_per_file: 50_000
+- prefix: "allenai_tulu_3_personas_if__"
+  max_per_file: 50_000
+
+# Small high-quality datasets can repeat.
+- prefix: "no_robots__"
+  repeat: 10

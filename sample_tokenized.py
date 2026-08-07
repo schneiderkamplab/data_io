@@ -25,6 +25,7 @@ class Config(pydantic.BaseModel):
     output_path: str = "/dev/shm/sampled"
     prefix_config_path: str = "prefix_config.yaml"
     concat_workers: int = 32
+    reuse_tokens: bool = False
 
     seed: int = 0
     epochs: int = 10
@@ -66,6 +67,16 @@ class V1DatasetMeta(pydantic.BaseModel):
     total_length: int
 
 
+def compute_token_offsets(tasks: list[Task]) -> int:
+    total_tokens = 0
+    for task in tasks:
+        task_len = int(np.sum(task.indices.inst_len) + np.sum(task.indices.resp_len))
+        task.mmap_base_offset = total_tokens
+        task.mmap_length = task_len
+        total_tokens += task_len
+    return total_tokens
+
+
 def truncate_and_filter(task: Task, config: Config):
     # Filter too short / empty responses
     keep_mask = task.indices.resp_len >= config.min_resp_length
@@ -90,12 +101,7 @@ def concat_tokens(tasks: list[Task], config: Config, tokenizer_info: dict[str, A
         mmap_array[task.mmap_base_offset: task.mmap_base_offset + task.mmap_length] = mmap_src
 
     # Precompute offset
-    total_tokens = 0
-    for task in tasks:
-        task_len = int(np.sum(task.indices.inst_len) + np.sum(task.indices.resp_len))
-        task.mmap_base_offset = total_tokens
-        task.mmap_length = task_len
-        total_tokens += task_len
+    total_tokens = compute_token_offsets(tasks)
 
     # Create a big mmap of concatenated tokens with dynamic dtype
     target_dtype = np.int32  # Defaults to int32
@@ -119,6 +125,27 @@ def concat_tokens(tasks: list[Task], config: Config, tokenizer_info: dict[str, A
 
     # --- Step 4: Cleanup ---
     mmap_array.flush()
+
+
+def validate_reusable_tokens(tasks: list[Task], config: Config, tokenizer_info: dict[str, Any]) -> None:
+    total_tokens = compute_token_offsets(tasks)
+    tokens_path = Path(config.output_path) / "tokens.npy"
+    if not tokens_path.exists():
+        raise FileNotFoundError(f"reuse_tokens=true but {tokens_path} does not exist")
+
+    mmap_array = np.load(tokens_path, mmap_mode="r")
+    if mmap_array.shape != (total_tokens,):
+        raise ValueError(f"Existing {tokens_path} shape {mmap_array.shape} does not match expected {(total_tokens,)}")
+
+    expected_dtype = np.int32
+    vocab_size = tokenizer_info.get("vocab_size")
+    if vocab_size is not None:
+        if vocab_size <= np.iinfo(np.uint8).max:
+            expected_dtype = np.uint8
+        elif vocab_size <= np.iinfo(np.uint16).max:
+            expected_dtype = np.uint16
+    if mmap_array.dtype != expected_dtype:
+        raise ValueError(f"Existing {tokens_path} dtype {mmap_array.dtype} does not match expected {expected_dtype}")
 
 
 def gen_report(tasks: list[Task], config: Config, pct_levels: Sequence[int] = [0, 1, 5, 25, 50, 75, 95, 99, 100]):
@@ -271,8 +298,12 @@ def main():
                                               for f in fields(TaskIndices)}),
                           prefix_config=prefix_config))
 
-    # Concatenate all tokens into a single large file
-    concat_tokens(tasks, config, tokenizer_info, num_workers=config.concat_workers)
+    # Concatenate all tokens into a single large file, or reuse an existing
+    # backing store when only caps/repeats changed.
+    if config.reuse_tokens:
+        validate_reusable_tokens(tasks, config, tokenizer_info)
+    else:
+        concat_tokens(tasks, config, tokenizer_info, num_workers=config.concat_workers)
 
     # Prefilter
     for task in tasks:
@@ -281,7 +312,15 @@ def main():
     # Generate epoch indices
     rng = np.random.Generator(np.random.Philox(seed=config.seed))
 
-    total_rows = sum(len(task.indices.inst_start) for task in tasks)
+    def rows_to_sample_per_epoch(task: Task) -> int:
+        assert task.prefix_config is not None
+        if task.prefix_config.max_per_file is not None:
+            rows = min(task.prefix_config.max_per_file, len(task.indices.inst_start))
+        else:
+            rows = len(task.indices.inst_start)
+        return rows * task.prefix_config.repeat
+
+    total_rows = sum(rows_to_sample_per_epoch(task) for task in tasks)
     buffer = TaskIndices(**{f.name: np.empty((total_rows, ), dtype=np.int64)
                             for f in fields(TaskIndices)})
 
@@ -291,8 +330,7 @@ def main():
         buffer_cursor = 0
         for task in tasks:
             assert task.prefix_config is not None
-            rows_to_sample = min(task.prefix_config.max_per_file, len(task.indices.inst_start)) if task.prefix_config.max_per_file is not None else len(task.indices.inst_start)
-            rows_to_sample *= task.prefix_config.repeat
+            rows_to_sample = rows_to_sample_per_epoch(task)
             rows_fetched = 0
 
             # stats

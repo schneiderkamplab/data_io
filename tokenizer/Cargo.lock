@@ -2237,6 +2237,7 @@ dependencies = [
  "clap",
  "core_affinity",
  "crossbeam-queue",
+ "flate2",
  "indicatif 0.18.3",
  "mimalloc",
  "ndarray",

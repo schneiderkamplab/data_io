@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use core_affinity;
 use crossbeam_queue::SegQueue;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -16,7 +16,7 @@ use tokenizers::Tokenizer;
 use ndarray::ArrayView1;
 use ndarray_npy::write_npy;
 
-use tokenizer::{read_any_stream, scan_inputs};
+use tokenizer::{read_any_examples, scan_inputs, Example, Message};
 
 // Optimize memory allocation
 #[global_allocator]
@@ -45,11 +45,22 @@ struct Args {
     default_values = ["direct=<|object_ref_start|>", "cot=<|object_ref_end|>", "noisy=<|quad_start|>", "synth=<|quad_end|>"])]
     conditions: Vec<String>,
 
+    #[arg(long, value_enum, default_value_t = TemplateMode::Hrm)]
+    template_mode: TemplateMode,
+
     #[arg(long, help = "Maximum number of file-processing worker threads.")]
     workers: Option<usize>,
 }
 
 // --- Data Structures ---
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum TemplateMode {
+    /// Existing HRM/Sapient marker format: BOQ + condition + instruction + EOQ, response + EOA.
+    Hrm,
+    /// Gemma-native chat turn format for one PrefixLM prompt span and one supervised model response span.
+    Gemma4Chat,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct FileMetadata {
@@ -64,10 +75,20 @@ struct WorkItem {
 }
 
 struct TokenizerContext {
-    boq_id: u32,
-    eoq_id: u32,
-    eoa_id: u32,
+    boq_id: Option<u32>,
+    eoq_id: Option<u32>,
+    eoa_id: Option<u32>,
     condition_ids: HashMap<String, u32>,
+    gemma_ids: Option<GemmaSpecialIds>,
+    template_mode: TemplateMode,
+}
+
+struct GemmaSpecialIds {
+    bos: u32,
+    turn_start: u32,
+    turn_end: u32,
+    channel_start: u32,
+    channel_end: u32,
 }
 
 fn main() -> Result<()> {
@@ -103,6 +124,7 @@ fn main() -> Result<()> {
     // Create JSON object dynamically from Args and calculated data
     let tokenizer_info_json = json!({
         "tokenizer_path": args.tokenizer_path,
+        "template_mode": format!("{:?}", args.template_mode),
         "boq": args.boq,
         "eoq": args.eoq,
         "eoa": args.eoa,
@@ -113,13 +135,33 @@ fn main() -> Result<()> {
     serde_json::to_writer(File::create(args.output_dir.join("tokenizer_info.json"))?, &tokenizer_info_json)?;
 
     // Setup context
-    let ctx = Arc::new(TokenizerContext {
-        boq_id: tokenizer.token_to_id(&args.boq).context("BOQ missing")?,
-        eoq_id: tokenizer.token_to_id(&args.eoq).context("EOQ missing")?,
-        eoa_id: tokenizer.token_to_id(&args.eoa).context("EOA missing")?,
-        condition_ids: conditions.into_iter()
-            .map(|(k, v)| Ok((k, tokenizer.token_to_id(&v).context("Condition missing")?)))
-            .collect::<Result<_>>()?
+    let ctx = Arc::new(match args.template_mode {
+        TemplateMode::Hrm => TokenizerContext {
+            boq_id: Some(tokenizer.token_to_id(&args.boq).context("BOQ missing")?),
+            eoq_id: Some(tokenizer.token_to_id(&args.eoq).context("EOQ missing")?),
+            eoa_id: Some(tokenizer.token_to_id(&args.eoa).context("EOA missing")?),
+            condition_ids: conditions.into_iter()
+                .map(|(k, v)| Ok((k, tokenizer.token_to_id(&v).context("Condition missing")?)))
+                .collect::<Result<_>>()?,
+            gemma_ids: None,
+            template_mode: args.template_mode,
+        },
+        TemplateMode::Gemma4Chat => {
+            TokenizerContext {
+                boq_id: None,
+                eoq_id: None,
+                eoa_id: None,
+                condition_ids: HashMap::new(),
+                gemma_ids: Some(GemmaSpecialIds {
+                    bos: tokenizer.token_to_id("<bos>").context("Gemma chat token missing: <bos>")?,
+                    turn_start: tokenizer.token_to_id("<|turn>").context("Gemma chat token missing: <|turn>")?,
+                    turn_end: tokenizer.token_to_id("<turn|>").context("Gemma chat token missing: <turn|>")?,
+                    channel_start: tokenizer.token_to_id("<|channel>").context("Gemma chat token missing: <|channel>")?,
+                    channel_end: tokenizer.token_to_id("<channel|>").context("Gemma chat token missing: <channel|>")?,
+                }),
+                template_mode: args.template_mode,
+            }
+        }
     });
 
     // 2. Scan Inputs
@@ -232,34 +274,36 @@ fn process_file(item: &WorkItem, ctx: &TokenizerContext, tok: &Tokenizer) -> Res
     let mut resp_len = Vec::with_capacity(1024);
 
     // Optimized closure to handle tokenization logic once
-    let mut process_row = |condition: &str, instruction: &str, response: &str| {
-        if let Ok(inst_enc) = tok.encode_fast(instruction, false) {
-            if let Ok(resp_enc) = tok.encode_fast(response, false) {
-                // Instruction: BOQ + Condition tokens + Encoded + EOQ
-                let i_start = all_tokens.len();
-                all_tokens.push(ctx.boq_id);
-                for c in condition.split(',') {
-                    all_tokens.push(ctx.condition_ids[c]);
-                }
-                all_tokens.extend_from_slice(inst_enc.get_ids());
-                all_tokens.push(ctx.eoq_id);
-                
-                inst_start.push(i_start as u64);
-                inst_len.push((all_tokens.len() - i_start) as u64);
-
-                // Response: Encoded + EOA
-                let r_start = all_tokens.len();
-                all_tokens.extend_from_slice(resp_enc.get_ids());
-                all_tokens.push(ctx.eoa_id);
-
-                resp_start.push(r_start as u64);
-                resp_len.push((all_tokens.len() - r_start) as u64);
-            }
+    let mut process_row = |example: Example| {
+        match ctx.template_mode {
+            TemplateMode::Hrm => process_hrm_row(
+                &mut all_tokens,
+                &mut inst_start,
+                &mut inst_len,
+                &mut resp_start,
+                &mut resp_len,
+                &ctx,
+                tok,
+                &example.condition,
+                &example.instruction,
+                &example.response,
+            ),
+            TemplateMode::Gemma4Chat => process_gemma4_chat_row(
+                &mut all_tokens,
+                &mut inst_start,
+                &mut inst_len,
+                &mut resp_start,
+                &mut resp_len,
+                tok,
+                &ctx,
+                &example.prompt_messages,
+                &example.response,
+            ),
         }
     };
 
     // Read
-    read_any_stream(&item.input_path, &mut process_row)?;
+    read_any_examples(&item.input_path, &mut process_row)?;
 
     // Write Output
     fs::create_dir_all(&item.output_subdir)?;
@@ -279,4 +323,110 @@ fn process_file(item: &WorkItem, ctx: &TokenizerContext, tok: &Tokenizer) -> Res
     serde_json::to_writer(f, &info)?;
 
     Ok(())
+}
+
+fn process_hrm_row(
+    all_tokens: &mut Vec<u32>,
+    inst_start: &mut Vec<u64>,
+    inst_len: &mut Vec<u64>,
+    resp_start: &mut Vec<u64>,
+    resp_len: &mut Vec<u64>,
+    ctx: &TokenizerContext,
+    tok: &Tokenizer,
+    condition: &str,
+    instruction: &str,
+    response: &str,
+) {
+    if let Ok(inst_enc) = tok.encode_fast(instruction, false) {
+        if let Ok(resp_enc) = tok.encode_fast(response, false) {
+            let i_start = all_tokens.len();
+            all_tokens.push(ctx.boq_id.expect("HRM BOQ token id missing"));
+            for c in condition.split(',') {
+                all_tokens.push(ctx.condition_ids[c]);
+            }
+            all_tokens.extend_from_slice(inst_enc.get_ids());
+            all_tokens.push(ctx.eoq_id.expect("HRM EOQ token id missing"));
+
+            inst_start.push(i_start as u64);
+            inst_len.push((all_tokens.len() - i_start) as u64);
+
+            let r_start = all_tokens.len();
+            all_tokens.extend_from_slice(resp_enc.get_ids());
+            all_tokens.push(ctx.eoa_id.expect("HRM EOA token id missing"));
+
+            resp_start.push(r_start as u64);
+            resp_len.push((all_tokens.len() - r_start) as u64);
+        }
+    }
+}
+
+fn process_gemma4_chat_row(
+    all_tokens: &mut Vec<u32>,
+    inst_start: &mut Vec<u64>,
+    inst_len: &mut Vec<u64>,
+    resp_start: &mut Vec<u64>,
+    resp_len: &mut Vec<u64>,
+    tok: &Tokenizer,
+    ctx: &TokenizerContext,
+    prompt_messages: &[Message],
+    response: &str,
+) {
+    let Some(gemma) = ctx.gemma_ids.as_ref() else {
+        return;
+    };
+    let i_start = all_tokens.len();
+    all_tokens.push(gemma.bos);
+    for message in prompt_messages {
+        append_gemma4_message(all_tokens, tok, gemma, message);
+    }
+    all_tokens.push(gemma.turn_start);
+    append_encoded(all_tokens, tok, "model\n");
+    inst_start.push(i_start as u64);
+    inst_len.push((all_tokens.len() - i_start) as u64);
+
+    let r_start = all_tokens.len();
+    append_encoded(all_tokens, tok, response.trim());
+    all_tokens.push(gemma.turn_end);
+    append_encoded(all_tokens, tok, "\n");
+    resp_start.push(r_start as u64);
+    resp_len.push((all_tokens.len() - r_start) as u64);
+}
+
+fn append_gemma4_message(all_tokens: &mut Vec<u32>, tok: &Tokenizer, gemma: &GemmaSpecialIds, message: &Message) {
+    let content = message.content.trim();
+    if content.is_empty() {
+        return;
+    }
+    all_tokens.push(gemma.turn_start);
+    append_encoded(all_tokens, tok, gemma4_role(&message.role));
+    append_encoded(all_tokens, tok, "\n");
+    if !message.reasoning_content.trim().is_empty() && message.role.eq_ignore_ascii_case("assistant") {
+        all_tokens.push(gemma.channel_start);
+        append_encoded(all_tokens, tok, "thought\n");
+        append_encoded(all_tokens, tok, message.reasoning_content.trim());
+        append_encoded(all_tokens, tok, "\n");
+        all_tokens.push(gemma.channel_end);
+    }
+    append_encoded(all_tokens, tok, content);
+    all_tokens.push(gemma.turn_end);
+    append_encoded(all_tokens, tok, "\n");
+}
+
+fn append_encoded(all_tokens: &mut Vec<u32>, tok: &Tokenizer, text: &str) {
+    if text.is_empty() {
+        return;
+    }
+    if let Ok(enc) = tok.encode_fast(text, false) {
+        all_tokens.extend_from_slice(enc.get_ids());
+    }
+}
+
+fn gemma4_role(role: &str) -> &str {
+    match role.to_ascii_lowercase().as_str() {
+        "assistant" | "model" => "model",
+        "system" | "developer" => "system",
+        "tool" => "tool",
+        "user" => "user",
+        _ => "user",
+    }
 }
