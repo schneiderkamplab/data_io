@@ -33,6 +33,8 @@ class Config(pydantic.BaseModel):
     context_size: int = 4096 + 1  # +1: Account for AR shift
     min_resp_length: int = 2  # at least one content token + a EOS = 2 tokens
 
+    length_bins: Optional[list[dict]] = None
+
 
 @dataclass
 class TaskIndices:
@@ -58,6 +60,11 @@ class Task:
     coverage: Optional[np.ndarray] = None
     perm: Optional[np.ndarray] = None
     perm_cursor: int = 0
+
+    # Length-binned sampling
+    bin_assignments: Optional[np.ndarray] = None
+    bin_perms: Optional[list[np.ndarray]] = None
+    bin_perm_cursors: Optional[list[int]] = None
 
 
 class V1DatasetMeta(pydantic.BaseModel):
@@ -312,6 +319,18 @@ def main():
     # Generate epoch indices
     rng = np.random.Generator(np.random.Philox(seed=config.seed))
 
+    # Compute bin assignments if length_bins is configured
+    if config.length_bins:
+        for task in tasks:
+            total_lens = task.indices.inst_len + task.indices.resp_len
+            task.bin_assignments = np.full(len(total_lens), -1, dtype=np.int32)
+            for bin_idx, bin_spec in enumerate(config.length_bins):
+                mask = (total_lens >= bin_spec["min"]) & (total_lens < bin_spec["max"])
+                task.bin_assignments[mask] = bin_idx
+            n_bins = len(config.length_bins)
+            task.bin_perms = [None] * n_bins
+            task.bin_perm_cursors = [0] * n_bins
+
     def rows_to_sample_per_epoch(task: Task) -> int:
         assert task.prefix_config is not None
         if task.prefix_config.max_per_file is not None:
@@ -320,47 +339,64 @@ def main():
             rows = len(task.indices.inst_start)
         return rows * task.prefix_config.repeat
 
+    def fill_buffer(buffer, cursor, batch_indices, task, rng):
+        buffer.inst_start[cursor: cursor + len(batch_indices)] = task.indices.inst_start[batch_indices] + task.mmap_base_offset
+        buffer.inst_len[cursor: cursor + len(batch_indices)] = task.indices.inst_len[batch_indices]
+        buffer.resp_start[cursor: cursor + len(batch_indices)] = task.indices.resp_start[batch_indices] + task.mmap_base_offset
+        buffer.resp_len[cursor: cursor + len(batch_indices)] = task.indices.resp_len[batch_indices]
+        task.coverage[batch_indices] += 1
+
     total_rows = sum(rows_to_sample_per_epoch(task) for task in tasks)
     buffer = TaskIndices(**{f.name: np.empty((total_rows, ), dtype=np.int64)
                             for f in fields(TaskIndices)})
 
     total_tokens = 0
     for epoch in tqdm(range(config.epochs), desc="Generating epoch indices"):
-        # Generate one epoch
         buffer_cursor = 0
         for task in tasks:
             assert task.prefix_config is not None
             rows_to_sample = rows_to_sample_per_epoch(task)
-            rows_fetched = 0
 
-            # stats
             if task.coverage is None:
                 task.coverage = np.zeros((len(task.indices.inst_start), ), dtype=np.int32)
 
-            while rows_fetched < rows_to_sample:
-                # Reset permutation if exhausted
-                if task.perm is None or task.perm_cursor >= len(task.perm):
-                    task.perm = rng.permutation(len(task.indices.inst_len))
-                    task.perm_cursor = 0
+            if config.length_bins:
+                for bin_idx, bin_spec in enumerate(config.length_bins):
+                    bin_fraction = bin_spec["fraction"]
+                    bin_target = int(round(rows_to_sample * bin_fraction))
+                    bin_rows = np.where(task.bin_assignments == bin_idx)[0]
+                    if len(bin_rows) == 0 or bin_target == 0:
+                        continue
 
-                remaining = len(task.perm) - task.perm_cursor
-                # If we need more than we have left in current perm, take all remaining
-                take = min(remaining, rows_to_sample - rows_fetched)
-                rows_fetched += take
+                    rows_fetched = 0
+                    while rows_fetched < bin_target:
+                        if task.bin_perms[bin_idx] is None or task.bin_perm_cursors[bin_idx] >= len(task.bin_perms[bin_idx]):
+                            task.bin_perms[bin_idx] = rng.permutation(bin_rows)
+                            task.bin_perm_cursors[bin_idx] = 0
+                        remaining = len(task.bin_perms[bin_idx]) - task.bin_perm_cursors[bin_idx]
+                        take = min(remaining, bin_target - rows_fetched)
+                        batch_indices = task.bin_perms[bin_idx][task.bin_perm_cursors[bin_idx]: task.bin_perm_cursors[bin_idx] + take]
+                        task.bin_perm_cursors[bin_idx] += take
+                        rows_fetched += take
 
-                # Slice indices
-                batch_indices = task.perm[task.perm_cursor: task.perm_cursor + take]
-                task.perm_cursor += take
+                        fill_buffer(buffer, buffer_cursor, batch_indices, task, rng)
+                        buffer_cursor += take
+            else:
+                rows_fetched = 0
+                while rows_fetched < rows_to_sample:
+                    if task.perm is None or task.perm_cursor >= len(task.perm):
+                        task.perm = rng.permutation(len(task.indices.inst_len))
+                        task.perm_cursor = 0
 
-                # Fill buffer
-                buffer.inst_start[buffer_cursor: buffer_cursor + take] = task.indices.inst_start[batch_indices] + task.mmap_base_offset
-                buffer.inst_len[buffer_cursor: buffer_cursor + take] = task.indices.inst_len[batch_indices]
-                buffer.resp_start[buffer_cursor: buffer_cursor + take] = task.indices.resp_start[batch_indices] + task.mmap_base_offset
-                buffer.resp_len[buffer_cursor: buffer_cursor + take] = task.indices.resp_len[batch_indices]
-                buffer_cursor += take
+                    remaining = len(task.perm) - task.perm_cursor
+                    take = min(remaining, rows_to_sample - rows_fetched)
+                    rows_fetched += take
 
-                # Stats
-                task.coverage[batch_indices] += 1
+                    batch_indices = task.perm[task.perm_cursor: task.perm_cursor + take]
+                    task.perm_cursor += take
+
+                    fill_buffer(buffer, buffer_cursor, batch_indices, task, rng)
+                    buffer_cursor += take
 
         # Stats for metadata
         total_tokens += np.sum(buffer.inst_len[:buffer_cursor]) + np.sum(buffer.resp_len[:buffer_cursor])
