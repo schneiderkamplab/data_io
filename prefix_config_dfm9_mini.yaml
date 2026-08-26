@@ -1,0 +1,177 @@
+# DFM9-mini sampling policy.
+#
+# Subset of DFM9 containing ONLY fully permissively licensed datasets.
+# Excludes:
+#   - Local/agreement-only sources (DBC, LexDK, TV2R, skolegpt, laerebogen,
+#     kaenguruen, AI Arena, Nordjylland news)
+#   - EU TDM-only sources (Sapient-sourced FLAN/Tasksource/Platypus/math/synth,
+#     code_meta_reasoning, natural_instructions, croco_munin, gsm_symbolic_da,
+#     webinstruct, arxiv_paper_summarization)
+#   - Non-permissive licenses (no_robots CC-BY-NC, OpenHermes mixed provenance,
+#     synquid gated/uncertain, dfm_dyna_instruct mixed sources)
+#
+# Current sample: ~5.689B tokens/epoch, 10 epochs = 56.886B total.
+
+# ── DynaWord transformations (Danish DynaWord, permissive) ──
+- prefix: danish-dynaword-denoising__
+  repeat: 1
+- prefix: danish-dynaword-paragraph-reordering__
+  repeat: 1
+- prefix: danish-dynaword-prefix-continuation__
+  repeat: 1
+- prefix: danish-dynaword-span-filling__
+  repeat: 1
+
+# ── Common Pile transformations (public domain / CC-BY-SA) ──
+- prefix: common-pile-denoising__
+  max_per_file: 20000
+- prefix: common-pile-paragraph-reordering__
+  max_per_file: 20000
+- prefix: common-pile-prefix-continuation__
+  max_per_file: 20000
+- prefix: common-pile-span-filling__
+  max_per_file: 20000
+
+# ── Cross-lingual transformations (synthetic, DynaWord/Common Pile seed) ──
+- prefix: transformations-danish-danish__
+  max_per_file: 100
+- prefix: transformations-danish-english__
+  max_per_file: 100
+- prefix: transformations-english-danish__
+  max_per_file: 100
+- prefix: transformations-english-english__
+  max_per_file: 100
+
+# ── AllenAI (ODC-By / permissive) ──
+- prefix: allenai_rlvr_gsm__
+  repeat: 2
+- prefix: allenai_rlvr_math__
+  repeat: 2
+- prefix: allenai_open_math_2_50k_r1__
+  repeat: 1
+- prefix: allenai_tulu_3_personas_code__
+  max_per_file: 20000
+- prefix: allenai_tulu_3_personas_math__
+  max_per_file: 20000
+- prefix: allenai_tulu_3_personas_if__
+  max_per_file: 20000
+- prefix: allenai_tulu_3_personas_algebra__
+  repeat: 1
+- prefix: allenai_tulu_3_sft_mixture__
+  max_per_file: 50000
+- prefix: allenai_tulu_v2_sft_mixture__
+  max_per_file: 50000
+- prefix: allenai_tulu_v2_sft_long_mixture__
+  max_per_file: 50000
+- prefix: allenai_if_sft_verified__
+  repeat: 1
+- prefix: allenai_verifiable_reasoning_gpt41__
+  max_per_file: 5000
+- prefix: allenai_verifiable_reasoning_o4mini__
+  max_per_file: 5000
+- prefix: allenai_sciriff_train_mix__
+  max_per_file: 20000
+- prefix: allenai_big_reasoning_traces__
+  max_per_file: 5000
+
+# ── AllenAI Dolci (ODC-By) ──
+- prefix: dolci_instruct_sft_no_tools__
+  max_per_file: 50000
+- prefix: dolci_native_tool_use__
+  max_per_file: 50000
+- prefix: dolci_instruct_sft__
+  max_per_file: 50000
+
+# ── NVIDIA Nemotron (NVIDIA permissive license) ──
+- prefix: nemotron_terminal_corpus__
+  max_per_file: 15000
+- prefix: nemotron_swe_windowed__
+  max_per_file: 20000
+- prefix: nemotron_agentic__
+  max_per_file: 20000
+- prefix: nemotron_instruction_reasoning_off__
+  max_per_file: 20000
+- prefix: nemotron_multilingual__
+  max_per_file: 5000
+
+# ── NuminaMath 1.5 (MIT) ──
+- prefix: numinamath_1_5__
+  max_per_file: 25000
+
+# ── ASSET (CC-BY) ──
+- prefix: posttrain_asset__
+  repeat: 1
+
+# ── CoEdIT (OBSD, not EU TDM) ──
+- prefix: posttrain_coedit__
+  repeat: 1
+
+# ── Tool calling (permissive HF licenses) ──
+- prefix: glaive_native_tool_use__
+  max_per_file: 50000
+- prefix: toolace_native_tool_use__
+  max_per_file: 50000
+- prefix: xlam_native_tool_use__
+  max_per_file: 50000
+
+# ── DFM4 summarization (permissive sources only) ──
+- prefix: dfm4_govreport_summarization__
+  repeat: 1
+- prefix: dfm4_laion_scientific_summaries__
+  max_per_file: 200
+- prefix: dfm4_wiki_cat_sum_summarization__
+  repeat: 1
+
+# ── Oliver Kinch (CC-BY / EU legal / DOAB / DynaWord / OPUS provenance) ──
+- prefix: oliverkinch_multi_wiki_qa_high_quality__
+  repeat: 2
+- prefix: oliverkinch_danmarks_statistik_bt__
+  repeat: 2
+- prefix: oliverkinch_danish_university_portals_bt__
+  repeat: 2
+- prefix: oliverkinch_tidsskrift_dk_bt__
+  repeat: 1
+- prefix: oliverkinch_doab_da_bt__
+  repeat: 2
+- prefix: oliverkinch_eur_lex_bt__
+  repeat: 2
+- prefix: oliverkinch_eur_lex_sum_instruct__
+  repeat: 2
+- prefix: oliverkinch_dynaword_bt__
+  repeat: 1
+- prefix: oliverkinch_dst_table_prompts_bt__
+  repeat: 2
+- prefix: oliverkinch_da_instruct_dynaword__
+  repeat: 1
+- prefix: oliverkinch_da_instruct_dynaword_hq__
+  repeat: 1
+- prefix: oliverkinch_da_instruct_dynaword_contemporary__
+  repeat: 1
+- prefix: oliverkinch_da_instruct_dynaword_contemporary_hq__
+  repeat: 1
+- prefix: oliverkinch_machine_translation_da_en__
+  max_per_file: 200000
+- prefix: oliverkinch_machine_translation_da_uk__
+  max_per_file: 100000
+- prefix: oliverkinch_machine_translation_da_ar__
+  max_per_file: 100000
+- prefix: oliverkinch_instruct_bt__
+  repeat: 2
+- prefix: oliverkinch_danish_qa__
+  repeat: 1
+- prefix: oliverkinch_autodata_da_sft__
+  repeat: 2
+- prefix: oliverkinch_danish_summarization__eur_lex__
+  repeat: 2
+
+# ── OPUS translation (permissive / public domain subset) ──
+- prefix: opus__
+  max_per_file: 1000000
+
+# ── DFM8 project-generated synthetic (Apache 2.0) ──
+- prefix: dfm8-synthetic-
+  max_per_file: 50000
+
+# ── Synthetic replacements (Apache 2.0, project-generated) ──
+- prefix: sapient-synth-
+  repeat: 1

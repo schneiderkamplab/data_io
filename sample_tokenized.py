@@ -29,6 +29,7 @@ class Config(pydantic.BaseModel):
 
     seed: int = 0
     epochs: int = 10
+    skip_unmatched: bool = False  # If True, skip directories not matching any prefix
 
     context_size: int = 4096 + 1  # +1: Account for AR shift
     min_resp_length: int = 2  # at least one content token + a EOS = 2 tokens
@@ -290,6 +291,8 @@ def main():
                 prefix_config = PrefixConfig(**prefix_config_item)
 
         if prefix_config is None:
+            if config.skip_unmatched:
+                continue
             prefix_config = PrefixConfig()
 
         # Add task
