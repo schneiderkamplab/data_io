@@ -29,6 +29,7 @@ class Config(pydantic.BaseModel):
 
     seed: int = 0
     epochs: int = 10
+    skip_unmatched: bool = False  # If True, skip directories not matching any prefix
 
     context_size: int = 4096 + 1  # +1: Account for AR shift
     min_resp_length: int = 2  # at least one content token + a EOS = 2 tokens
@@ -297,6 +298,8 @@ def main():
                 prefix_config = PrefixConfig(**prefix_config_item)
 
         if prefix_config is None:
+            if config.skip_unmatched:
+                continue
             prefix_config = PrefixConfig()
 
         # Add task
@@ -352,6 +355,15 @@ def main():
 
     total_tokens = 0
     for epoch in tqdm(range(config.epochs), desc="Generating epoch indices"):
+        # no_repeat bins must be re-shuffled each epoch: each epoch dir carries
+        # the full capped mix (only one epoch dir is consumed per training
+        # stage), while no_repeat still forbids within-epoch replacement.
+        if config.length_bins:
+            for task in tasks:
+                for bin_idx, bin_spec in enumerate(config.length_bins):
+                    if bool(bin_spec.get("no_repeat", False)):
+                        task.bin_perms[bin_idx] = None
+                        task.bin_perm_cursors[bin_idx] = 0
         buffer_cursor = 0
         for task in tasks:
             assert task.prefix_config is not None
@@ -363,14 +375,22 @@ def main():
             if config.length_bins:
                 for bin_idx, bin_spec in enumerate(config.length_bins):
                     bin_fraction = bin_spec["fraction"]
+                    no_repeat = bool(bin_spec.get("no_repeat", False))
                     bin_target = int(round(rows_to_sample * bin_fraction))
                     bin_rows = np.where(task.bin_assignments == bin_idx)[0]
                     if len(bin_rows) == 0 or bin_target == 0:
                         continue
+                    if no_repeat:
+                        bin_target = min(bin_target, len(bin_rows))
 
                     rows_fetched = 0
                     while rows_fetched < bin_target:
-                        if task.bin_perms[bin_idx] is None or task.bin_perm_cursors[bin_idx] >= len(task.bin_perms[bin_idx]):
+                        if task.bin_perms[bin_idx] is None:
+                            task.bin_perms[bin_idx] = rng.permutation(bin_rows)
+                            task.bin_perm_cursors[bin_idx] = 0
+                        elif task.bin_perm_cursors[bin_idx] >= len(task.bin_perms[bin_idx]):
+                            if no_repeat:
+                                break
                             task.bin_perms[bin_idx] = rng.permutation(bin_rows)
                             task.bin_perm_cursors[bin_idx] = 0
                         remaining = len(task.bin_perms[bin_idx]) - task.bin_perm_cursors[bin_idx]
