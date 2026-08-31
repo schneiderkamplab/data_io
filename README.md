@@ -144,6 +144,7 @@ epochs: int = 10                               # Number of training epochs
 
 context_size: int = 4096 + 1                   # Max sequence length (including +1 AR shift)
 min_resp_length: int = 2                       # Minimum response length. All responses shorter than this will be dropped. Default: at least one content token + an EOS = 2 tokens
+default_long_context: Literal["drop", "truncate"] = "truncate"  # Default for prefix rules that omit long_context and for unmatched tasks
 ```
 
 **Stratified sampling configuration file (specified in prefix_config_path):**
