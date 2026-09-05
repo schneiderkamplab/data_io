@@ -33,6 +33,7 @@ class Config(pydantic.BaseModel):
 
     context_size: int = 4096 + 1  # +1: Account for AR shift
     min_resp_length: int = 2  # at least one content token + a EOS = 2 tokens
+    default_long_context: LongContextMode = "truncate"
 
     length_bins: Optional[list[dict]] = None
 
@@ -295,12 +296,14 @@ def main():
                 if prefix_config is not None:
                     print(f"Warning: Multiple possible prefixes for task {task_name}, pick config {prefix_config.model_dump_json()}")
                     break
-                prefix_config = PrefixConfig(**prefix_config_item)
+                prefix_config = PrefixConfig(
+                    **{"long_context": config.default_long_context, **prefix_config_item}
+                )
 
         if prefix_config is None:
             if config.skip_unmatched:
                 continue
-            prefix_config = PrefixConfig()
+            prefix_config = PrefixConfig(long_context=config.default_long_context)
 
         # Add task
         tasks.append(Task(name=task_name,
