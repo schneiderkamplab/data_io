@@ -20,6 +20,12 @@
 - prefix: dfm11-fineinstructions-en-legacy-balanced__
   repeat: 1
 
+# Danish grounded FineInstructions: all 503,740 independently audited,
+# controlled-mode chats. Matching pair rows are published but not tokenized
+# separately because each chat already contains its initial pair exchange.
+- prefix: dfm11-fineinstructions-da__
+  repeat: 1
+
 # Four equal-ish source shards; 12,500 per file gives the approved 50K cap.
 - prefix: dfm11-mathagentic-tinygsm-python__
   max_per_file: 12500
