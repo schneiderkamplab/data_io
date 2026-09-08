@@ -18,6 +18,7 @@ class PrefixConfig(pydantic.BaseModel):
     max_per_file: Optional[int] = None
     long_context: LongContextMode = "truncate"
     repeat: int = 1
+    selection_indices_path: Optional[str] = None
 
 
 class Config(pydantic.BaseModel):
@@ -84,6 +85,20 @@ def compute_token_offsets(tasks: list[Task]) -> int:
         task.mmap_length = task_len
         total_tokens += task_len
     return total_tokens
+
+
+def apply_selection(task: Task):
+    """Select original row ordinals after token offsets are computed."""
+    if task.prefix_config.selection_indices_path is None:
+        return
+    selected = np.load(task.prefix_config.selection_indices_path, allow_pickle=False)
+    count = len(task.indices.inst_start)
+    if (selected.ndim != 1 or selected.dtype.kind not in 'iu'
+            or (selected.size and (selected[0] < 0 or selected[-1] >= count
+                                  or np.any(selected[1:] <= selected[:-1])))):
+        raise ValueError(f'Invalid selection indices for {task.name}')
+    for field in fields(TaskIndices):
+        setattr(task.indices, field.name, getattr(task.indices, field.name)[selected])
 
 
 def truncate_and_filter(task: Task, config: Config):
@@ -320,6 +335,7 @@ def main():
 
     # Prefilter
     for task in tasks:
+        apply_selection(task)
         truncate_and_filter(task, config)
 
     # Generate epoch indices
