@@ -42,23 +42,101 @@
 - prefix: dfm11-synthetic-native-tool-calling-repaired__
   repeat: 4
 
-# DFM10 baseline follows unchanged.
+# Replacement error correction: 13 shards, at most 975,000 examples per epoch.
+- prefix: dfm11-folketingets-dokumenter-error-correction__
+  max_per_file: 75000
+  repeat: 1
+
+# Exact DFM10 baseline; replacement families are removed by the union builder.
+# DFM10 sampling policy.
+#
+# DFM10 inherits DFM9 and adds train-only Andersen and Alexandra Institute
+# sources. Held-out validation/test rows are never tokenized for training.
+#
+# Changes from DFM9:
+#   - Andersen modernization: 1,068 rows
+#   - Bornholmsk/standard-Danish translation: 6,785 pairs in both directions
+#   - DiEm historical Danish modernization: accepted generated rows only
+#   - strictly grounded Nordjylland summaries: final count recorded after audit
+#   - Danish ScandiQA: 6,810 rows
+#   - selected Danish/English MultiZebra: 768 rows
+#   - DaNE: 4,383 rows
+#   - DaCoref: 2,686 rows
+#   - Z.ai DeepDive: 858 successful native search-agent trajectories
+#   - OpenStax Mimir SFT: independently audited grounded academic instruction
+#   - expanded Mimir grounded SFT: audited capability-gap instruction at one pass
+#   - DSL Danish sentiment and FrameNet lexical supervision: one gold pass
+
+- prefix: dsldk_danish_sentiment_lexicon.jsonl
+  repeat: 1
+- prefix: dsldk_danish_sentiment_lexicon_natural.jsonl
+  repeat: 1
+- prefix: dsldk_danish_framenet.jsonl
+  repeat: 1
+- prefix: dsldk_danish_framenet_natural.jsonl
+  repeat: 1
+
+- prefix: openstax_mimir_sft__
+  repeat: 1
+
+- prefix: mimir_grounded_expanded_sft__
+  repeat: 1
+
+- prefix: mimir_answer_contract_calibration
+  repeat: 1
 
 - prefix: andersen_modernization__
   repeat: 20
 
-# Alexandra Institute train-only additions. The original Nordjylland summaries
-# complement, rather than duplicate, the inherited synthetic summaries.
+- prefix: bornholmsk_parallel__
+  repeat: 10
+
+# Conservative medical tranche: ELRC includes public-health and document prose
+# beyond clinical text; NHS notes are fully synthetic and grounded only.
+- prefix: elrc_medical_en_da__
+  repeat: 2
+- prefix: emea_medical_da_en__
+  repeat: 1
+- prefix: ecdc_public_health_en_da__
+  repeat: 4
+- prefix: nhs_synthetic_clinical_notes__
+  repeat: 1
+- prefix: medquad_english__
+  repeat: 1
+- prefix: medquad_danish__
+  repeat: 1
+
+- prefix: diem_modernization__
+  # Teacher-generated targets are independently audited and kept below the
+  # amplification used for the gold Andersen alignment.
+  repeat: 5
+
+- prefix: cor_sem__
+  repeat: 2
+
+- prefix: danish_book_ads__
+  repeat: 2
+
+- prefix: sks_tei__
+  repeat: 2
+
+# Alexandra Institute train-only additions. Disable the inherited conversion:
+# DFM10 uses only the headline-aware, full-corpus grounding-filtered repair.
 - prefix: alexandra_nordjylland_original__
+  max_per_file: 0
+- prefix: nordjylland_news_repaired__
   repeat: 1
 - prefix: alexandra_scandi_qa_da__
   repeat: 4
 - prefix: alexandra_multi_zebra__
-  repeat: 8
+  # Borderline audit: retain one pass without amplifying uncertain solutions.
+  repeat: 1
 - prefix: alexandra_dane__
   repeat: 4
 - prefix: alexandra_dacoref__
-  repeat: 4
+  # The audit found 33% incorrect-answer complaints. This tiny source is not
+  # worth teaching at fourfold weight.
+  max_per_file: 0
 
 # Each source trajectory produces supervision at every assistant tool call and
 # at the final answer, so one source pass already yields about 9K examples.
@@ -68,15 +146,16 @@
 
 # Rigsarkivet/Folketinget 1849-2026: audited Danish reconstruction tasks.
 - prefix: folketingets-dokumenter-prefix-continuation__
+  max_per_file: 1000000
   repeat: 1
 - prefix: folketingets-dokumenter-denoising__
+  max_per_file: 1000000
   repeat: 1
 - prefix: folketingets-dokumenter-error-correction__
-  max_per_file: 0
-- prefix: dfm11-folketingets-dokumenter-error-correction__
-  max_per_file: 75000
+  max_per_file: 1000000
   repeat: 1
 - prefix: folketingets-dokumenter-span-filling__
+  max_per_file: 1000000
   repeat: 1
 
 - prefix: giannor_dala_tv2r_it__
@@ -116,6 +195,17 @@
 - prefix: transformations-english-english__
   repeat: 4
 
+# These constituents also exist as direct sources below. Keep only the direct
+# routes so their intended repeat is explicit and not inflated by the composite.
+- prefix: dfm_dyna_instruct__data__wiki-instruct-da__
+  max_per_file: 0
+- prefix: dfm_dyna_instruct__data__danish-verifiable-reasoning__
+  max_per_file: 0
+- prefix: dfm_dyna_instruct__data__ifbench-train__
+  max_per_file: 0
+- prefix: dfm_dyna_instruct__data__translation-100k__
+  max_per_file: 0
+
 # Inherit DFM7 policy for all other shared sources.
 - prefix: dfm_dyna_instruct__
   repeat: 1
@@ -126,18 +216,21 @@
 - prefix: ai_arena_udtraek__
   repeat: 10
 - prefix: kaenguruen__
-  repeat: 20
+  # Keep the train split once; do not multiply its uncertain answers.
+  repeat: 1
 - prefix: oliverkinch_danish_qa__
   repeat: 4
 - prefix: oliverkinch_danish_summarization__
   repeat: 4
 - prefix: oliverkinch_da_instruct_dynaword__
-  repeat: 4
+  max_per_file: 0
 - prefix: oliverkinch_da_instruct_dynaword_hq__
-  repeat: 4
+  max_per_file: 0
 - prefix: oliverkinch_da_instruct_dynaword_contemporary__
-  repeat: 4
+  max_per_file: 0
 - prefix: oliverkinch_da_instruct_dynaword_contemporary_hq__
+  max_per_file: 0
+- prefix: dynaword_instruct_repaired__
   repeat: 4
 - prefix: oliverkinch_autodata_da_sft__
   repeat: 10
@@ -145,11 +238,30 @@
   repeat: 1
 - prefix: synth_repeat30__
   repeat: 1
+# Source-specific Sapient exclusions must precede the broad rule below because
+# the sampler intentionally uses the first matching prefix.
+- prefix: sapient-synth-flan-dialog-zsopt-data-qrecc-ii__
+  max_per_file: 0
+- prefix: sapient-synth-flan-dialog-fsopt-data-qrecc-ii__
+  max_per_file: 0
+- prefix: sapient-synth-platypus-scibench__
+  max_per_file: 0
+- prefix: sapient-synth-flan-niv2-zsopt-data-task871-msmarco-question-generation__
+  max_per_file: 0
+- prefix: sapient-synth-flan-niv2-fsopt-data-task871-msmarco-question-generation__
+  max_per_file: 0
 - prefix: sapient-synth-
   repeat: 1
+# Superseded DBC abstract/review conversions used Danish prompts for English
+# targets and opaque IDs for reviews. Keep them present for provenance but
+# sample only the validated repaired conversion.
 - prefix: dbc__dbc-abstracts_
-  max_per_file: 100000
+  max_per_file: 0
 - prefix: dbc__dbc-reviews
+  max_per_file: 0
+- prefix: dbc_repaired__dbc-abstracts_
+  max_per_file: 100000
+- prefix: dbc_repaired__dbc-reviews
   max_per_file: 150000
 - prefix: dbc__dbc-faktalink
   repeat: 10
@@ -157,10 +269,18 @@
   repeat: 10
 - prefix: laerebogen_with_followups__
   repeat: 4
+- prefix: dfm10_synthetic_values_model_charter__
+  repeat: 10
+- prefix: dfm10_synthetic_values_model_charter_da__
+  repeat: 10
 - prefix: lexdk__
   repeat: 5
+# Superseded by the language/alignment-filtered, provenance-clean conversion.
 - prefix: opus__
-  max_per_file: 30000000
+  max_per_file: 0
+- prefix: opus_da_en_repaired__
+  # 468,750 rows from each of 64 balanced shards preserves the old 30M budget.
+  max_per_file: 468750
 - prefix: oliverkinch_instruct_bt__
   repeat: 10
 - prefix: oliverkinch_multi_wiki_qa_high_quality__
@@ -176,6 +296,8 @@
 - prefix: nemotron_agentic__
   max_per_file: 2000000
 - prefix: nemotron_swe_windowed__
+  max_per_file: 0
+- prefix: nemotron_swe_repaired__
   max_per_file: 500000
 - prefix: nemotron_instruction_reasoning_off__
   max_per_file: 1500000
@@ -199,6 +321,8 @@
 - prefix: dolci_instruct_sft_tool_use_sa__
   max_per_file: 0
 - prefix: dolci_native_tool_use__
+  max_per_file: 0
+- prefix: dolci_tool_use_repaired__
   max_per_file: 1000000
   repeat: 2
 - prefix: glaive_native_tool_use__
@@ -211,6 +335,8 @@
   max_per_file: 1000000
   repeat: 3
 - prefix: openmathinstruct2__
+  max_per_file: 0
+- prefix: openmathinstruct2_repaired__
   max_per_file: 20000000
 - prefix: acereason__
   max_per_file: 3000000
@@ -219,7 +345,11 @@
 - prefix: allenai_big_reasoning_traces__
   max_per_file: 100000
 - prefix: allenai_code_meta_reasoning__
-  max_per_file: 250000
+  max_per_file: 0
+- prefix: code_meta_reasoning_repaired__
+  # The repaired inventory has at most 25,320 rows in any shard. Keep the full
+  # 429,301-row clean corpus; empty source shards remain harmless.
+  max_per_file: 25320
 - prefix: allenai_tulu_3_sft_mixture__
   max_per_file: 1140000
   repeat: 2
@@ -228,33 +358,68 @@
 - prefix: dfm4_arxiv_paper_summarization__
   max_per_file: 100000
 - prefix: dfm4_govreport_summarization__
+  max_per_file: 0
+- prefix: govreport_summarization_repaired__
   repeat: 2
 - prefix: dfm4_wiki_cat_sum_summarization__
+  max_per_file: 0
+- prefix: wiki_cat_sum_repaired__
   repeat: 2
 - prefix: dfm4_laion_scientific_summaries__
-  max_per_file: 3000
+  max_per_file: 0
+- prefix: scientific_summaries_repaired__
+  # The complete repair is 6.32B tokens, roughly 5x the legacy conversion.
+  # A balanced cap across 4,006 files preserves approximately the legacy
+  # 1.27B-token weight without allowing this 91%-usable support source to
+  # dominate the mix.
+  max_per_file: 167
+  repeat: 1
 - prefix: oliverkinch_machine_translation_da_en__
-  max_per_file: 3000000
+  # Redundant with the language/alignment-filtered OPUS replacement and still
+  # showed a 39% translation-mismatch complaint rate.
+  max_per_file: 0
 - prefix: oliverkinch_machine_translation_da_uk__
-  max_per_file: 1000000
+  max_per_file: 0
+- prefix: machine_translation_da_uk_repaired__
+  repeat: 1
 - prefix: oliverkinch_machine_translation_da_ar__
-  max_per_file: 1000000
+  # The source-level audit found only 7% usable rows. Arabic translation is
+  # not a current DFM objective, so fail closed instead of regenerating it.
+  max_per_file: 0
+- prefix: sapient_qrecc_ii_repaired__
+  repeat: 1
+- prefix: sapient_scibench_repaired__
+  repeat: 1
 - prefix: oliverkinch_eur_lex_sum_instruct__
-  repeat: 10
+  repeat: 1
 - prefix: oliverkinch_dst_table_prompts_bt__
+  max_per_file: 0
+- prefix: dst_table_prompts_repaired__
   repeat: 10
 - prefix: oliverkinch_tidsskrift_dk_bt__
-  repeat: 2
+  repeat: 1
+- prefix: tidsskrift_open_sft.jsonl
+  repeat: 1
+- prefix: tidsskrift_open_chats.jsonl
+  repeat: 1
+- prefix: danish_wikipedia_open_chats.jsonl
+  repeat: 1
+- prefix: openstax_open_chats.jsonl
+  repeat: 1
 - prefix: oliverkinch_dynaword_bt__
-  repeat: 2
+  repeat: 1
 - prefix: oliverkinch_danish_university_portals_bt__
+  max_per_file: 0
+- prefix: danish_university_portals_bt_repaired__
   repeat: 10
 - prefix: oliverkinch_danmarks_statistik_bt__
+  max_per_file: 0
+- prefix: danmarks_statistik_bt_repaired__
   repeat: 10
 - prefix: oliverkinch_doab_da_bt__
-  repeat: 10
+  repeat: 1
 - prefix: oliverkinch_eur_lex_bt__
-  repeat: 10
+  repeat: 1
 - prefix: synquid_mt_da_deepseek__
   max_per_file: 100000
 - prefix: synquid_translation_100k__
@@ -321,6 +486,8 @@
 - prefix: numinamath_1_5__
   max_per_file: 300000
 - prefix: nemotron_terminal_corpus__
+  max_per_file: 0
+- prefix: nemotron_terminal_corpus_native__
   max_per_file: 200000
 - prefix: posttrain_natural_instructions__
   max_per_file: 500000
@@ -334,3 +501,9 @@
   repeat: 5
 - prefix: gsm_symbolic_da__
   repeat: 5
+
+# DFM10 audited Danish multi-turn additions.
+- prefix: danish_persona_chats__accepted.jsonl
+  repeat: 2
+- prefix: domsdatabasen_grounded_chats__accepted.jsonl
+  repeat: 1
